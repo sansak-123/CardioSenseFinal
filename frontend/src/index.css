@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  h1, h2, h3, h4 { font-family: 'Space Grotesk', sans-serif; }
+}
+
+@layer utilities {
+  .text-gradient {
+    background: linear-gradient(135deg, #38BDF8 0%, #7DD3FC 50%, #BAE6FD 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .border-glow {
+    border-color: #38BDF840;
+    box-shadow: 0 0 0 1px #38BDF820, inset 0 0 20px #38BDF808;
+  }
+  .card-glass {
+    background: linear-gradient(135deg, #0A162880 0%, #0F1E3560 100%);
+    backdrop-filter: blur(12px);
+    border: 1px solid #1E3A5F60;
+  }
+  .critical-glow {
+    box-shadow: 0 0 20px #E11D4840, 0 0 40px #E11D4820;
+  }
+  .safe-glow {
+    box-shadow: 0 0 20px #10B98140, 0 0 40px #10B98120;
+  }
+}
