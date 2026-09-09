@@ -7,7 +7,6 @@ import React, { useRef, useEffect, useCallback } from "react";
  */
 export default function ECGCanvas({ className = "", height = 120, color = "#38BDF8", risk = 0 }) {
   const mountRef = useRef(null);
-  const stateRef = useRef({});
 
   // Generate one PQRST beat (normalised 0→1 x, -1→1 y)
   const generateBeat = useCallback((offset = 0, amplitude = 1) => {
@@ -41,13 +40,19 @@ export default function ECGCanvas({ className = "", height = 120, color = "#38BD
   }, []);
 
   useEffect(() => {
-    const THREE = window.__THREE__ || null;
     let animId;
+    let cancelled = false;
+    let localState = {};
     const el = mountRef.current;
     if (!el) return;
 
     // Lazy-load Three.js from CDN if not bundled
     const init = (THREE) => {
+      // React.StrictMode double-invokes this effect in dev (mount → cleanup
+      // → mount again); since init runs after an async import(), the first
+      // instance's cleanup can fire before this callback resolves. Bail out
+      // rather than appending a second, never-cleaned-up canvas.
+      if (cancelled) return;
       const W = el.clientWidth;
       const H = height;
 
@@ -113,22 +118,24 @@ export default function ECGCanvas({ className = "", height = 120, color = "#38BD
       };
       window.addEventListener("resize", onResize);
 
-      stateRef.current = { renderer, scene, camera, line, mat, onResize };
+      localState = { renderer, scene, camera, line, mat, onResize };
     };
 
     // Try import from bundled three first, else CDN
     import("three").then((THREE) => {
-      init(THREE);
+      if (!cancelled) init(THREE);
     }).catch(() => {
+      if (cancelled) return;
       const script = document.createElement("script");
       script.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
-      script.onload = () => init(window.THREE);
+      script.onload = () => { if (!cancelled) init(window.THREE); };
       document.head.appendChild(script);
     });
 
     return () => {
+      cancelled = true;
       cancelAnimationFrame(animId);
-      const { renderer, onResize, scene } = stateRef.current;
+      const { renderer, onResize } = localState;
       if (onResize) window.removeEventListener("resize", onResize);
       if (renderer) {
         renderer.dispose();

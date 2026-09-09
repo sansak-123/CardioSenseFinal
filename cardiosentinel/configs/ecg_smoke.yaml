@@ -1,0 +1,14 @@
+# CPU-runnable correctness config — tiny signal branch and a record subsample
+# so it finishes fast on a laptop. Real training targets configs/ecg.yaml on GPU.
+device: cpu
+seed: 0
+batch_size: 4
+epochs: 1
+lr: 1.0e-3
+weight_decay: 0.0
+num_workers: 0
+signal_channels: 8
+val_fold: 9
+test_fold: 10
+max_records: 40
+checkpoint_dir: checkpoints/ecg_smoke

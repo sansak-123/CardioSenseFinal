@@ -4,27 +4,37 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Restrained clinical palette — light neutrals, one muted accent
+        // reserved for interactive/active state, risk severity carried by
+        // riskScale below rather than by decorative color elsewhere.
         bg: {
-          base:    "#060E1F",
-          card:    "#0A1628",
-          elevated:"#0F1E35",
-          border:  "#1E3A5F",
-          hover:   "#162240",
+          base:    "#F3F5F7",
+          card:    "#FFFFFF",
+          elevated:"#F8FAFC",
+          border:  "#E2E8F0",
+          hover:   "#EEF2F6",
         },
         sky: {
-          accent:  "#38BDF8",
-          dim:     "#0EA5E9",
-          glow:    "#7DD3FC",
+          accent:  "#2C5282",
+          dim:     "#1E3A5F",
+          glow:    "#4A6FA5",
         },
-        critical: "#E11D48",
-        warning:  "#F59E0B",
-        safe:     "#10B981",
+        critical: "#B91C1C",
+        warning:  "#B45309",
+        safe:     "#0F766E",
         text: {
-          primary:   "#F8FAFC",
-          secondary: "#94A3B8",
-          muted:     "#475569",
-          accent:    "#38BDF8",
-        }
+          primary:   "#0F172A",
+          secondary: "#475569",
+          muted:     "#94A3B8",
+          accent:    "#2C5282",
+        },
+        // Continuous risk-severity scale (used only for risk indicators —
+        // horizon cards, sparklines, attribution when tied to risk).
+        risk: {
+          low:  "#0F766E",
+          mid:  "#B45309",
+          high: "#991B1B",
+        },
       },
       fontFamily: {
         display: ["'Space Grotesk'", "sans-serif"],

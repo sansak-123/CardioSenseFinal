@@ -1,0 +1,31 @@
+# CPU-runnable correctness config — small dims, frozen text encoders (fine-
+# tuning ClinicalBERT/BioBERT is not practical without a GPU), and a stay
+# subsample so a full run finishes in a couple of minutes on a laptop. This
+# proves the real data pipeline + model run end-to-end; it is NOT meant to
+# produce a usable model. See configs/trimodal.yaml for the real GPU config.
+device: cpu
+seed: 0
+
+max_hour: 48
+ehr_d_model: 16
+ehr_layers: 1
+ehr_heads: 2
+d_model: 16
+fusion_type: amt
+freeze_text_encoders: true
+notes_max_length: 64
+symptoms_max_length: 32
+
+batch_size: 4
+epochs: 1
+lr: 1.0e-3
+weight_decay: 0.0
+num_workers: 0
+
+pairing_seed: 42
+pairing_temperature: 5.0
+val_frac: 0.2
+test_frac: 0.2
+max_stays: 40
+
+checkpoint_dir: checkpoints/trimodal_smoke

@@ -22,3 +22,11 @@ Thumbs.db
 venv/
 __pycache__/
 *.pyc
+
+# CardioSentinel ML — data & training artifacts
+/data/
+cardiosentinel/checkpoints/
+cardiosentinel/runs/
+*.pt
+*.pth
+kaggle.json

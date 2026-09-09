@@ -1,0 +1,104 @@
+[
+  {
+    "id": "ICU-2214",
+    "admittedAt": "2026-09-07T14:20:00",
+    "age": 58,
+    "sex": "F",
+    "status": "Stable",
+    "risk": { "h24": 0.06, "h48": 0.09, "h72": 0.13 },
+    "riskHistory": {
+      "h24": [0.09, 0.08, 0.08, 0.07, 0.07, 0.06, 0.06, 0.06],
+      "h48": [0.13, 0.12, 0.11, 0.11, 0.10, 0.10, 0.09, 0.09],
+      "h72": [0.18, 0.17, 0.16, 0.15, 0.15, 0.14, 0.13, 0.13]
+    },
+    "attribution": { "vitals": 0.52, "notes": 0.27, "symptoms": 0.21 },
+    "partialRisk": {
+      "vitals":   { "h24": 0.05, "h48": 0.08, "h72": 0.11 },
+      "notes":    { "h24": 0.07, "h48": 0.10, "h72": 0.14 },
+      "symptoms": { "h24": 0.08, "h48": 0.11, "h72": 0.16 }
+    },
+    "vitalsTrend": [
+      { "hour": "-7h", "hr": 76, "sbp": 122, "dbp": 78, "spo2": 98 },
+      { "hour": "-6h", "hr": 74, "sbp": 120, "dbp": 76, "spo2": 98 },
+      { "hour": "-5h", "hr": 75, "sbp": 121, "dbp": 77, "spo2": 97 },
+      { "hour": "-4h", "hr": 73, "sbp": 118, "dbp": 76, "spo2": 98 },
+      { "hour": "-3h", "hr": 74, "sbp": 119, "dbp": 75, "spo2": 98 },
+      { "hour": "-2h", "hr": 72, "sbp": 117, "dbp": 74, "spo2": 99 },
+      { "hour": "-1h", "hr": 73, "sbp": 118, "dbp": 75, "spo2": 98 },
+      { "hour": "now", "hr": 72, "sbp": 116, "dbp": 74, "spo2": 98 }
+    ],
+    "noteExcerpt": "Patient resting comfortably overnight. No new complaints. Cardiac exam unremarkable, regular rate and rhythm, no murmurs. Continues on home antihypertensive regimen. Plan: routine monitoring, likely stepdown tomorrow if trend holds.",
+    "symptomExcerpt": "I feel pretty much back to normal today. A little tired but no chest pain, no trouble breathing. Sleeping okay.",
+    "ecg": {
+      "classes": { "NORM": 0.86, "MI": 0.02, "STTC": 0.05, "CD": 0.04, "HYP": 0.03 }
+    }
+  },
+  {
+    "id": "ICU-3087",
+    "admittedAt": "2026-09-08T02:05:00",
+    "age": 67,
+    "sex": "M",
+    "status": "Monitoring",
+    "risk": { "h24": 0.34, "h48": 0.46, "h72": 0.55 },
+    "riskHistory": {
+      "h24": [0.19, 0.21, 0.24, 0.26, 0.29, 0.31, 0.33, 0.34],
+      "h48": [0.28, 0.31, 0.34, 0.37, 0.40, 0.42, 0.44, 0.46],
+      "h72": [0.35, 0.38, 0.41, 0.44, 0.47, 0.50, 0.53, 0.55]
+    },
+    "attribution": { "vitals": 0.45, "notes": 0.38, "symptoms": 0.17 },
+    "partialRisk": {
+      "vitals":   { "h24": 0.39, "h48": 0.50, "h72": 0.58 },
+      "notes":    { "h24": 0.31, "h48": 0.44, "h72": 0.53 },
+      "symptoms": { "h24": 0.22, "h48": 0.33, "h72": 0.41 }
+    },
+    "vitalsTrend": [
+      { "hour": "-7h", "hr": 88, "sbp": 108, "dbp": 70, "spo2": 96 },
+      { "hour": "-6h", "hr": 91, "sbp": 106, "dbp": 69, "spo2": 95 },
+      { "hour": "-5h", "hr": 93, "sbp": 104, "dbp": 68, "spo2": 95 },
+      { "hour": "-4h", "hr": 96, "sbp": 102, "dbp": 66, "spo2": 94 },
+      { "hour": "-3h", "hr": 99, "sbp": 100, "dbp": 65, "spo2": 94 },
+      { "hour": "-2h", "hr": 101, "sbp": 98, "dbp": 64, "spo2": 93 },
+      { "hour": "-1h", "hr": 103, "sbp": 97, "dbp": 63, "spo2": 93 },
+      { "hour": "now", "hr": 105, "sbp": 95, "dbp": 62, "spo2": 92 }
+    ],
+    "noteExcerpt": "Patient reports increasing fatigue since this afternoon. Mild diaphoresis noted on exam. Trending tachycardic with slight downward drift in systolic pressure over the past several hours. No overt distress at this time but pattern warrants closer observation. Repeat troponin pending.",
+    "symptomExcerpt": "I've been feeling more tired than usual and a bit sweaty even though the room isn't warm. Some tightness in my chest, comes and goes, not really painful, more like pressure.",
+    "ecg": {
+      "classes": { "NORM": 0.18, "MI": 0.11, "STTC": 0.49, "CD": 0.14, "HYP": 0.08 }
+    }
+  },
+  {
+    "id": "ICU-1449",
+    "admittedAt": "2026-09-08T19:40:00",
+    "age": 74,
+    "sex": "M",
+    "status": "Critical",
+    "risk": { "h24": 0.71, "h48": 0.79, "h72": 0.84 },
+    "riskHistory": {
+      "h24": [0.42, 0.48, 0.53, 0.58, 0.62, 0.66, 0.69, 0.71],
+      "h48": [0.50, 0.56, 0.61, 0.65, 0.69, 0.73, 0.76, 0.79],
+      "h72": [0.55, 0.61, 0.66, 0.70, 0.74, 0.78, 0.81, 0.84]
+    },
+    "attribution": { "vitals": 0.58, "notes": 0.31, "symptoms": 0.11 },
+    "partialRisk": {
+      "vitals":   { "h24": 0.77, "h48": 0.85, "h72": 0.89 },
+      "notes":    { "h24": 0.62, "h48": 0.71, "h72": 0.77 },
+      "symptoms": { "h24": 0.48, "h48": 0.58, "h72": 0.65 }
+    },
+    "vitalsTrend": [
+      { "hour": "-7h", "hr": 102, "sbp": 100, "dbp": 66, "spo2": 94 },
+      { "hour": "-6h", "hr": 108, "sbp": 96, "dbp": 64, "spo2": 93 },
+      { "hour": "-5h", "hr": 114, "sbp": 92, "dbp": 61, "spo2": 92 },
+      { "hour": "-4h", "hr": 119, "sbp": 88, "dbp": 59, "spo2": 91 },
+      { "hour": "-3h", "hr": 124, "sbp": 85, "dbp": 57, "spo2": 90 },
+      { "hour": "-2h", "hr": 129, "sbp": 82, "dbp": 55, "spo2": 89 },
+      { "hour": "-1h", "hr": 133, "sbp": 80, "dbp": 54, "spo2": 88 },
+      { "hour": "now", "hr": 137, "sbp": 78, "dbp": 52, "spo2": 87 }
+    ],
+    "noteExcerpt": "Rapid clinical decline over past 6 hours. Sustained tachycardia and worsening hypotension despite fluid bolus. Patient increasingly diaphoretic and anxious, reports crushing chest pressure radiating to left arm. Cardiology paged, stat ECG and troponin obtained, transfer to CCU under consideration.",
+    "symptomExcerpt": "It feels like someone is standing on my chest. It's spreading down my left arm and I feel dizzy and sick to my stomach. I'm scared, it's getting worse.",
+    "ecg": {
+      "classes": { "NORM": 0.03, "MI": 0.71, "STTC": 0.15, "CD": 0.08, "HYP": 0.03 }
+    }
+  }
+]

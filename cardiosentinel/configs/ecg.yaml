@@ -1,0 +1,14 @@
+device: cuda
+seed: 0
+batch_size: 64
+epochs: 20
+lr: 1.0e-3
+weight_decay: 1.0e-4
+# 0 for reliability on Windows (num_workers>0 uses spawn there, which stalled
+# with no observable progress for several minutes on this dev machine).
+# Safe to raise back to 4 on Colab/Linux (fork-based, no such issue).
+num_workers: 0
+signal_channels: 32
+val_fold: 9
+test_fold: 10
+checkpoint_dir: checkpoints/ecg

@@ -1,239 +1,391 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import React, { useMemo, useState } from "react";
+import { format, formatDistanceToNow } from "date-fns";
+import clsx from "clsx";
 import {
-  Activity, Heart, AlertTriangle, TrendingUp,
-  Users, Clock, Zap, ArrowRight, Shield, ChevronRight
+  Activity, FileText, MessageSquare, HeartPulse, Info, ClipboardList,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+  ResponsiveContainer, AreaChart, Area, LineChart, Line, YAxis,
 } from "recharts";
 import ECGCanvas from "@/components/ECGCanvas";
-import { Card, StatCard, RiskBadge, SectionHeader, Tag, Button } from "@/components/ui";
-import clsx from "clsx";
+import cases from "@/data/sample_cases.json";
+import { getRiskColor, getRiskLabel } from "@/utils/risk";
 
-/* ── Mock data ─────────────────────────────────────────────────── */
-const AUROC_DATA = [
-  { epoch: 1,  ehr: 0.71, nlp: 0.68, fused: 0.72 },
-  { epoch: 5,  ehr: 0.75, nlp: 0.72, fused: 0.78 },
-  { epoch: 10, ehr: 0.78, nlp: 0.75, fused: 0.82 },
-  { epoch: 15, ehr: 0.80, nlp: 0.77, fused: 0.84 },
-  { epoch: 20, ehr: 0.81, nlp: 0.78, fused: 0.86 },
-  { epoch: 25, ehr: 0.82, nlp: 0.79, fused: 0.874 },
-  { epoch: 30, ehr: 0.82, nlp: 0.79, fused: 0.879 },
+const HORIZONS = [
+  { key: "h24", label: "24 hours" },
+  { key: "h48", label: "48 hours" },
+  { key: "h72", label: "72 hours" },
 ];
 
-const RECENT_PATIENTS = [
-  { id: "ECG-21401", age: 67, sex: "M", label: "MI",   risk24: 0.83, risk72: 0.91, status: "critical" },
-  { id: "ECG-18834", age: 54, sex: "F", label: "STTC", risk24: 0.61, risk72: 0.74, status: "warning"  },
-  { id: "ECG-09271", age: 42, sex: "M", label: "NORM", risk24: 0.09, risk72: 0.11, status: "safe"     },
-  { id: "ECG-15502", age: 71, sex: "F", label: "HYP",  risk24: 0.48, risk72: 0.59, status: "warning"  },
-  { id: "ECG-07839", age: 38, sex: "M", label: "CD",   risk24: 0.22, risk72: 0.28, status: "safe"     },
-];
-
-const STATUS_COLOR = {
-  critical: "text-critical bg-critical/10 border-critical/30",
-  warning:  "text-warning  bg-warning/10  border-warning/30",
-  safe:     "text-safe     bg-safe/10     border-safe/30",
+const STREAM_META = {
+  vitals:   { label: "ICU Vitals & Labs",        icon: Activity },
+  notes:    { label: "Clinical Notes",            icon: FileText },
+  symptoms: { label: "Patient-Reported Symptoms", icon: MessageSquare },
 };
 
-const CustomTooltip = ({ active, payload, label }) => {
-  if (!active || !payload?.length) return null;
+const STATUS_STYLE = {
+  Stable:     "text-safe bg-safe/10 border-safe/30",
+  Monitoring: "text-warning bg-warning/10 border-warning/30",
+  Critical:   "text-critical bg-critical/10 border-critical/30",
+};
+
+const ECG_CLASS_LABEL = {
+  NORM: "Normal",
+  MI:   "Myocardial infarction",
+  STTC: "ST/T-wave changes",
+  CD:   "Conduction disturbance",
+  HYP:  "Hypertrophy",
+};
+
+function pct(x) {
+  return `${Math.round(x * 100)}%`;
+}
+
+/* ── Small building blocks ─────────────────────────────────────── */
+
+function Panel({ eyebrow, title, sub, children, className }) {
   return (
-    <div className="bg-bg-elevated border border-bg-border rounded-lg p-3 text-xs font-mono">
-      <p className="text-text-muted mb-1">Epoch {label}</p>
-      {payload.map(p => (
-        <p key={p.dataKey} style={{ color: p.color }}>{p.name}: {p.value.toFixed(3)}</p>
-      ))}
+    <div className={clsx("rounded-lg border border-bg-border bg-bg-card p-5", className)}>
+      {(eyebrow || title) && (
+        <div className="mb-4">
+          {eyebrow && (
+            <p className="text-[11px] font-medium text-text-muted tracking-wide uppercase mb-1">{eyebrow}</p>
+          )}
+          {title && <h2 className="text-base font-semibold text-text-primary">{title}</h2>}
+          {sub && <p className="text-sm text-text-secondary mt-0.5">{sub}</p>}
+        </div>
+      )}
+      {children}
     </div>
   );
-};
+}
+
+function Sparkline({ data, color, uid }) {
+  // Gradient id must be a valid SVG id — an rgb(...) color string contains
+  // parens/commas/spaces, which silently breaks the url(#...) fill
+  // reference, so a caller-supplied uid (not the raw color) names it.
+  const gradientId = `spark-${uid}`;
+  return (
+    <ResponsiveContainer width="100%" height={36}>
+      <AreaChart data={data.map((v, i) => ({ i, v }))} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+            <stop offset="100%" stopColor={color} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5}
+              fill={`url(#${gradientId})`} dot={false} isAnimationActive={false} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+function CaseCard({ c, selected, onSelect }) {
+  const color = getRiskColor(c.risk.h72);
+  return (
+    <button
+      onClick={onSelect}
+      className={clsx(
+        "text-left rounded-lg border p-4 transition-colors bg-bg-card",
+        selected ? "border-sky-accent ring-1 ring-sky-accent/30" : "border-bg-border hover:border-text-muted"
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-sm font-semibold text-text-primary">{c.id}</p>
+          <p className="text-xs text-text-muted mt-0.5">
+            {c.age}{c.sex} · Admitted {formatDistanceToNow(new Date(c.admittedAt), { addSuffix: true })}
+          </p>
+        </div>
+        <span className={clsx("text-[10px] font-medium border rounded-full px-2 py-0.5", STATUS_STYLE[c.status])}>
+          {c.status}
+        </span>
+      </div>
+      <div className="flex items-center gap-2 mt-3">
+        <span className="text-[11px] text-text-muted">72h risk</span>
+        <span className="text-sm font-semibold" style={{ color }}>{pct(c.risk.h72)}</span>
+      </div>
+    </button>
+  );
+}
+
+function RiskHorizonCard({ label, fraction, history }) {
+  const color = getRiskColor(fraction);
+  return (
+    <div className="rounded-lg border border-bg-border bg-bg-card p-4">
+      <p className="text-xs font-medium text-text-muted uppercase tracking-wide">{label}</p>
+      <div className="flex items-baseline gap-2 mt-1.5">
+        <span className="text-3xl font-semibold tabular-nums" style={{ color }}>{pct(fraction)}</span>
+        <span className="text-xs font-medium" style={{ color }}>{getRiskLabel(fraction)}</span>
+      </div>
+      <div className="mt-2">
+        <Sparkline data={history} color={color} uid={label.replace(/\s+/g, "-")} />
+      </div>
+      <p className="text-[10px] text-text-muted mt-1">Trend, last 7 hours</p>
+    </div>
+  );
+}
+
+function AttributionBar({ label, Icon, value, active }) {
+  const width = Math.max(value * 100, active ? 2 : 0);
+  return (
+    <div className={clsx("py-2", !active && "opacity-40")}>
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2">
+          <Icon size={14} className="text-text-secondary" />
+          <span className="text-sm text-text-secondary">{label}</span>
+        </div>
+        <span className="text-sm font-medium text-text-primary tabular-nums">
+          {active ? pct(value) : "excluded"}
+        </span>
+      </div>
+      <div className="h-1.5 rounded-full bg-bg-hover overflow-hidden">
+        <div
+          className="h-full rounded-full bg-sky-accent transition-all duration-300"
+          style={{ width: `${width}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ModalityToggle({ label, Icon, active, onToggle, disabled }) {
+  return (
+    <div className="flex items-center justify-between py-2.5 border-b border-bg-border last:border-0">
+      <div className="flex items-center gap-2">
+        <Icon size={14} className={active ? "text-text-secondary" : "text-text-muted"} />
+        <span className={clsx("text-sm", active ? "text-text-primary" : "text-text-muted")}>{label}</span>
+      </div>
+      <button
+        onClick={onToggle}
+        disabled={disabled}
+        title={disabled ? "At least one modality must stay available" : undefined}
+        className={clsx(
+          "relative w-9 h-5 rounded-full transition-colors shrink-0",
+          active ? "bg-sky-accent" : "bg-bg-border",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        <span
+          className={clsx(
+            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+            active && "translate-x-4"
+          )}
+        />
+      </button>
+    </div>
+  );
+}
+
+function VitalMini({ label, unit, series, dataKey, color, current }) {
+  return (
+    <div className="rounded-lg border border-bg-border p-3">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[11px] font-medium text-text-muted uppercase tracking-wide">{label}</span>
+        <span className="text-sm font-semibold text-text-primary tabular-nums">
+          {current}<span className="text-[10px] font-normal text-text-muted ml-0.5">{unit}</span>
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={40}>
+        <LineChart data={series} margin={{ top: 6, right: 0, bottom: 0, left: 0 }}>
+          <YAxis hide domain={["dataMin - 4", "dataMax + 4"]} />
+          <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function EvidencePanel({ case_ }) {
+  const last = case_.vitalsTrend[case_.vitalsTrend.length - 1];
+  return (
+    <Panel eyebrow="Supporting Evidence" title="What drove this prediction"
+           sub="The actual inputs behind the numbers above, for sanity-checking against clinical judgment.">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+        <VitalMini label="Heart rate" unit="bpm" series={case_.vitalsTrend} dataKey="hr" color="#2C5282" current={last.hr} />
+        <VitalMini label="Blood pressure (SBP)" unit="mmHg" series={case_.vitalsTrend} dataKey="sbp" color="#B45309" current={last.sbp} />
+        <VitalMini label="SpO2" unit="%" series={case_.vitalsTrend} dataKey="spo2" color="#0F766E" current={last.spo2} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div>
+          <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1.5">Clinical note excerpt</p>
+          <div className="rounded-lg bg-bg-elevated border border-bg-border p-3">
+            <p className="text-sm text-text-secondary leading-relaxed">{case_.noteExcerpt}</p>
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide mb-1.5">Patient-reported symptoms</p>
+          <div className="rounded-lg bg-bg-elevated border border-bg-border p-3">
+            <p className="text-sm text-text-secondary leading-relaxed italic">&ldquo;{case_.symptomExcerpt}&rdquo;</p>
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ECGPanel({ ecg }) {
+  const sorted = Object.entries(ecg.classes).sort((a, b) => b[1] - a[1]);
+  const dominant = sorted[0][0];
+  return (
+    <div className="rounded-lg border border-sky-dim/30 bg-bg-elevated p-5">
+      <div className="flex items-start justify-between mb-1">
+        <div className="flex items-center gap-2">
+          <HeartPulse size={16} className="text-sky-dim" />
+          <h2 className="text-base font-semibold text-text-primary">ECG Risk Classifier</h2>
+        </div>
+        <span className="text-[10px] font-medium text-sky-dim bg-sky-accent/10 border border-sky-accent/25 rounded-full px-2.5 py-1">
+          Separate model — not fused into the prediction above
+        </span>
+      </div>
+      <p className="text-sm text-text-secondary mb-4">
+        Trained independently on PTB-XL signal, engineered features, and demographics. Classifies diagnostic
+        category from a 12-lead ECG; does not feed the 24/48/72h deterioration estimates.
+      </p>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div>
+          <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide mb-2">Lead II (illustrative)</p>
+          <div className="rounded-lg border border-bg-border bg-bg-card p-3">
+            <ECGCanvas height={70} color="#334155" />
+          </div>
+        </div>
+        <div>
+          <p className="text-[11px] font-medium text-text-muted uppercase tracking-wide mb-2">Predicted diagnostic category</p>
+          <div className="space-y-2">
+            {sorted.map(([cls, score]) => (
+              <div key={cls}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className={clsx("text-sm", cls === dominant ? "text-text-primary font-medium" : "text-text-secondary")}>
+                    {ECG_CLASS_LABEL[cls]} <span className="text-text-muted">({cls})</span>
+                  </span>
+                  <span className="text-sm font-medium text-text-primary tabular-nums">{pct(score)}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-bg-hover overflow-hidden">
+                  <div
+                    className={clsx("h-full rounded-full", cls === dominant ? "bg-sky-dim" : "bg-text-muted/50")}
+                    style={{ width: `${score * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ──────────────────────────────────────────────────────── */
 
 export default function Dashboard() {
-  const navigate = useNavigate();
-  const [tick, setTick] = useState(0);
+  const [selectedId, setSelectedId] = useState(cases[0].id);
+  const [active, setActive] = useState({ vitals: true, notes: true, symptoms: true });
 
-  useEffect(() => {
-    const id = setInterval(() => setTick(t => t + 1), 2000);
-    return () => clearInterval(id);
-  }, []);
+  const case_ = cases.find((c) => c.id === selectedId);
+  const activeCount = Object.values(active).filter(Boolean).length;
+
+  const selectCase = (id) => {
+    setSelectedId(id);
+    setActive({ vitals: true, notes: true, symptoms: true });
+  };
+
+  const toggle = (key) => {
+    setActive((prev) => {
+      if (prev[key] && activeCount === 1) return prev;
+      return { ...prev, [key]: !prev[key] };
+    });
+  };
+
+  const { fusedRisk, effectiveAttribution } = useMemo(() => {
+    const activeKeys = Object.keys(active).filter((k) => active[k]);
+    const weightSum = activeKeys.reduce((s, k) => s + case_.attribution[k], 0) || 1;
+
+    const attribution = {};
+    Object.keys(active).forEach((k) => {
+      attribution[k] = active[k] ? case_.attribution[k] / weightSum : 0;
+    });
+
+    const risk = {};
+    HORIZONS.forEach(({ key }) => {
+      risk[key] = activeKeys.reduce(
+        (sum, s) => sum + (case_.attribution[s] / weightSum) * case_.partialRisk[s][key],
+        0
+      );
+    });
+
+    return { fusedRisk: risk, effectiveAttribution: attribution };
+  }, [active, case_]);
 
   return (
-    <div className="p-6 space-y-6">
-
-      {/* ── Hero ECG banner ──────────────────────────────────────── */}
-      <div className="relative rounded-2xl overflow-hidden border border-bg-border bg-bg-card">
-        {/* Grid overlay */}
-        <div
-          className="absolute inset-0 opacity-[0.035]"
-          style={{
-            backgroundImage:
-              "linear-gradient(#38BDF8 1px, transparent 1px), linear-gradient(90deg, #38BDF8 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
-        />
-        <div className="relative z-10 px-8 py-6">
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-mono text-sky-accent tracking-[0.25em] mb-1">CARDIOSENSE · LIVE MONITOR</p>
-              <h1 className="font-display text-3xl font-semibold text-text-primary leading-tight">
-                Pre-Lab Cardiac<br />
-                <span className="text-gradient">Deterioration Predictor</span>
-              </h1>
-              <p className="text-sm text-text-secondary mt-2 max-w-sm">
-                Multimodal deep learning across ECG signals, morphological features,
-                and diagnostic text. Predicts risk 24–72 h before lab confirmation.
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="flex items-center gap-2 justify-end mb-1">
-                <div className="w-1.5 h-1.5 rounded-full bg-safe animate-pulse" />
-                <span className="text-[10px] font-mono text-safe">STREAMING</span>
-              </div>
-              <p className="font-display text-4xl font-bold text-gradient">0.879</p>
-              <p className="text-[10px] text-text-muted font-mono mt-0.5">AUROC @ 72h</p>
-            </div>
-          </div>
-          <ECGCanvas height={80} color="#38BDF8" className="w-full opacity-90" />
-        </div>
-      </div>
-
-      {/* ── Stat row ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Training Records"   value="21,837" unit="ECGs"    sub="PTB-XL dataset"      icon={Activity}  accent="sky"      />
-        <StatCard label="Model AUROC"        value="87.9"   unit="%"       sub="72h horizon"         icon={TrendingUp} accent="safe"     />
-        <StatCard label="Critical Alerts"    value="3"      unit="active"  trend={12} sub="last 24h" icon={AlertTriangle} accent="critical" />
-        <StatCard label="Patients Monitored" value="1,204"  unit="total"   sub="this session"        icon={Users}     accent="sky"      />
-      </div>
-
-      {/* ── Middle row ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-
-        {/* AUROC chart */}
-        <Card className="lg:col-span-2">
-          <SectionHeader
-            eyebrow="Training Progress"
-            title="AUROC by Modality Stream"
-            sub="Fusion consistently outperforms single-stream baselines"
-          />
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={AUROC_DATA} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-              <defs>
-                {[["fused","#38BDF8"],["nlp","#10B981"],["ehr","#F59E0B"]].map(([k,c]) => (
-                  <linearGradient key={k} id={`g-${k}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={c} stopOpacity={0.15} />
-                    <stop offset="95%" stopColor={c} stopOpacity={0} />
-                  </linearGradient>
-                ))}
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1E3A5F50" />
-              <XAxis dataKey="epoch" tick={{ fontSize: 10, fill: "#475569", fontFamily: "JetBrains Mono" }} />
-              <YAxis domain={[0.65, 0.92]} tick={{ fontSize: 10, fill: "#475569", fontFamily: "JetBrains Mono" }} tickFormatter={v => v.toFixed(2)} />
-              <Tooltip content={<CustomTooltip />} />
-              <Area type="monotone" dataKey="fused" name="Fused"     stroke="#38BDF8" fill="url(#g-fused)" strokeWidth={2} dot={false} />
-              <Area type="monotone" dataKey="nlp"   name="NLP Text"  stroke="#10B981" fill="url(#g-nlp)"   strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
-              <Area type="monotone" dataKey="ehr"   name="ECG Only"  stroke="#F59E0B" fill="url(#g-ehr)"   strokeWidth={1.5} strokeDasharray="4 2" dot={false} />
-            </AreaChart>
-          </ResponsiveContainer>
-          <div className="flex gap-4 mt-2">
-            {[["#38BDF8","Fused (CardioSense)"],["#10B981","NLP Text"],["#F59E0B","ECG Only"]].map(([c,l]) => (
-              <div key={l} className="flex items-center gap-1.5">
-                <div className="w-3 h-0.5" style={{ background: c }} />
-                <span className="text-[10px] text-text-muted font-mono">{l}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Horizon risk cards */}
-        <Card>
-          <SectionHeader eyebrow="Prediction" title="Risk Horizons" />
-          <div className="space-y-2.5">
-            <RiskBadge score={0.61} label="24h Deterioration" />
-            <RiskBadge score={0.74} label="48h Deterioration" />
-            <RiskBadge score={0.83} label="72h Deterioration" />
-          </div>
-          <div className="mt-4 pt-4 border-t border-bg-border">
-            <p className="text-[10px] font-mono text-text-muted mb-2">MODALITY TRUST WEIGHTS</p>
-            {[["ECG Signal","52%","#38BDF8"],["Clinical Text","32%","#10B981"],["Structured","16%","#F59E0B"]].map(([l,v,c]) => (
-              <div key={l} className="flex items-center gap-2 mb-1.5">
-                <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: c }} />
-                <span className="text-xs text-text-secondary flex-1">{l}</span>
-                <span className="text-xs font-mono" style={{ color: c }}>{v}</span>
-              </div>
-            ))}
-          </div>
-          <Button onClick={() => navigate("/patient")} variant="outline" size="sm" className="w-full mt-3">
-            Full Analysis <ArrowRight size={12} />
-          </Button>
-        </Card>
-      </div>
-
-      {/* ── Recent patients ───────────────────────────────────────── */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <SectionHeader eyebrow="Queue" title="Recent ECG Records" />
-          <Button variant="ghost" size="sm" onClick={() => navigate("/patient")}>
-            View all <ChevronRight size={12} />
-          </Button>
-        </div>
-        <div className="space-y-0">
-          {RECENT_PATIENTS.map((p, i) => (
-            <motion.div
-              key={p.id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05 }}
-              onClick={() => navigate("/patient")}
-              className="flex items-center justify-between py-3 border-b border-bg-border last:border-0 hover:bg-bg-hover rounded px-2 -mx-2 cursor-pointer transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-bg-elevated border border-bg-border flex items-center justify-center">
-                  <Heart size={13} className="text-text-muted" />
-                </div>
-                <div>
-                  <p className="text-xs font-mono text-text-primary">{p.id}</p>
-                  <p className="text-[10px] text-text-muted">{p.age}y {p.sex} · {p.label}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right hidden sm:block">
-                  <p className="text-[10px] text-text-muted font-mono">24h / 72h</p>
-                  <p className="text-xs font-mono text-text-secondary">
-                    {Math.round(p.risk24 * 100)}% / {Math.round(p.risk72 * 100)}%
-                  </p>
-                </div>
-                <span className={clsx(
-                  "text-[9px] font-mono border rounded px-2 py-0.5 tracking-wide uppercase",
-                  STATUS_COLOR[p.status]
-                )}>
-                  {p.status}
-                </span>
-              </div>
-            </motion.div>
+    <div className="p-6 space-y-6 max-w-6xl mx-auto">
+      {/* Case selector */}
+      <section>
+        <p className="text-[11px] font-medium text-text-muted tracking-wide uppercase mb-2 flex items-center gap-1.5">
+          <ClipboardList size={13} /> Sample cases
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {cases.map((c) => (
+            <CaseCard key={c.id} c={c} selected={c.id === selectedId} onSelect={() => selectCase(c.id)} />
           ))}
         </div>
-      </Card>
+      </section>
 
-      {/* ── Bottom callout ───────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { icon: Zap,    label: "Pre-Lab Window",      val: "24–72h",   sub: "Before abnormal labs" },
-          { icon: Shield, label: "Modality Trust",      val: "AMT Gate",  sub: "Dynamic per time-step" },
-          { icon: Clock,  label: "Inference Speed",     val: "<200ms",   sub: "Per patient" },
-        ].map(({ icon: Icon, label, val, sub }) => (
-          <div key={label} className="flex items-center gap-3 rounded-xl border border-bg-border bg-bg-card px-4 py-3">
-            <div className="w-8 h-8 rounded-lg bg-sky-accent/10 border border-sky-accent/20 flex items-center justify-center shrink-0">
-              <Icon size={14} className="text-sky-accent" />
-            </div>
-            <div>
-              <p className="text-[10px] text-text-muted font-mono">{label}</p>
-              <p className="text-sm font-display font-semibold text-text-primary">{val}</p>
-              <p className="text-[10px] text-text-muted">{sub}</p>
-            </div>
-          </div>
-        ))}
+      {/* Case header */}
+      <div className="flex items-center justify-between border-b border-bg-border pb-4">
+        <div>
+          <p className="text-xs text-text-muted">
+            {case_.id} · {case_.age}{case_.sex} · Admitted {format(new Date(case_.admittedAt), "MMM d, h:mm a")}
+          </p>
+          <h1 className="text-xl font-semibold text-text-primary mt-0.5">Deterioration Risk Assessment</h1>
+        </div>
+        <span className={clsx("text-xs font-medium border rounded-full px-3 py-1", STATUS_STYLE[case_.status])}>
+          {case_.status}
+        </span>
       </div>
+
+      {/* Risk horizon panel */}
+      <section>
+        <p className="text-[11px] font-medium text-text-muted tracking-wide uppercase mb-2">
+          Predicted risk of deterioration — trimodal model
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {HORIZONS.map((h) => (
+            <RiskHorizonCard key={h.key} label={h.label} fraction={fusedRisk[h.key]} history={case_.riskHistory[h.key]} />
+          ))}
+        </div>
+      </section>
+
+      {/* Attribution + toggles */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <Panel eyebrow="AMT Gate Output" title="Modality attribution"
+               sub="How much each input stream contributed to the current prediction.">
+          {Object.entries(STREAM_META).map(([key, meta]) => (
+            <AttributionBar key={key} label={meta.label} Icon={meta.icon}
+                             value={effectiveAttribution[key]} active={active[key]} />
+          ))}
+        </Panel>
+
+        <Panel eyebrow="Robustness Check" title="Missing-modality stress test"
+               sub="Simulate a stream being unavailable and watch the prediction adapt.">
+          {Object.entries(STREAM_META).map(([key, meta]) => (
+            <ModalityToggle key={key} label={meta.label} Icon={meta.icon} active={active[key]}
+                             onToggle={() => toggle(key)} disabled={active[key] && activeCount === 1} />
+          ))}
+          {activeCount < 3 && (
+            <p className="text-xs text-text-muted mt-3">
+              Recomputed using only the {activeCount} remaining available stream{activeCount > 1 ? "s" : ""} —
+              weights above are renormalized, not just zeroed.
+            </p>
+          )}
+        </Panel>
+      </div>
+
+      {/* Supporting evidence */}
+      <EvidencePanel case_={case_} />
+
+      {/* ECG panel — separate model */}
+      <ECGPanel ecg={case_.ecg} />
     </div>
   );
 }

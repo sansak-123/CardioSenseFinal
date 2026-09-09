@@ -1,19 +1,16 @@
 import React, { useState } from "react";
 import { Outlet, NavLink, useLocation } from "react-router-dom";
 import {
-  Activity, LayoutDashboard, User, Brain,
-  Database, TrendingUp, ChevronLeft, ChevronRight,
-  Wifi, AlertCircle
+  HeartPulse, LayoutDashboard, UserPlus,
+  ChevronLeft, ChevronRight,
+  Info
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 
 const NAV = [
-  { to: "/",          icon: LayoutDashboard, label: "Dashboard",        sub: "Overview" },
-  { to: "/patient",   icon: User,            label: "Patient Analysis",  sub: "Risk scoring" },
-  { to: "/model",     icon: Brain,           label: "Model Explorer",    sub: "Architecture" },
-  { to: "/datasets",  icon: Database,        label: "Datasets",          sub: "PTB-XL & more" },
-  { to: "/training",  icon: TrendingUp,      label: "Training",          sub: "Metrics & logs" },
+  { to: "/",             icon: LayoutDashboard, label: "Dashboard",     sub: "Deterioration risk" },
+  { to: "/new-patient",  icon: UserPlus,        label: "New Patient",   sub: "Live prediction" },
 ];
 
 export default function Layout() {
@@ -31,7 +28,7 @@ export default function Layout() {
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 py-5 border-b border-bg-border overflow-hidden">
           <div className="w-8 h-8 rounded-lg bg-sky-accent/10 border border-sky-accent/30 flex items-center justify-center shrink-0">
-            <Activity size={16} className="text-sky-accent" />
+            <HeartPulse size={16} className="text-sky-accent" />
           </div>
           <AnimatePresence>
             {!collapsed && (
@@ -42,8 +39,8 @@ export default function Layout() {
                 transition={{ duration: 0.15 }}
                 className="overflow-hidden"
               >
-                <p className="font-display font-600 text-sm text-text-primary tracking-wide leading-none">CardioSense</p>
-                <p className="text-[10px] text-text-muted mt-0.5 font-mono">v1.0 · PTB-XL</p>
+                <p className="text-sm font-semibold text-text-primary tracking-wide leading-none">CardioSentinel</p>
+                <p className="text-[10px] text-text-muted mt-0.5">Research demo</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -55,7 +52,7 @@ export default function Layout() {
           collapsed && "justify-center px-0 mx-2"
         )}>
           <div className="w-1.5 h-1.5 rounded-full bg-safe animate-pulse-slow shrink-0" />
-          {!collapsed && <span className="text-[10px] font-mono text-safe tracking-widest">MODEL READY</span>}
+          {!collapsed && <span className="text-[10px] text-safe tracking-wide">Model ready</span>}
         </div>
 
         {/* Nav */}
@@ -118,26 +115,20 @@ export default function Layout() {
       {/* ── Main content ───────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex items-center justify-between px-6 py-3 border-b border-bg-border bg-bg-card/60 backdrop-blur-sm shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-text-muted font-mono">
-              {location.pathname === "/" ? "DASHBOARD" :
-               location.pathname.slice(1).toUpperCase().replace("-", " ")}
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-1.5 text-text-muted">
-              <Wifi size={12} />
-              <span className="text-[10px] font-mono">PTB-XL · 21,837 ECGs</span>
-            </div>
-            <div className="w-px h-4 bg-bg-border" />
-            <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-sky-accent/10 border border-sky-accent/20 flex items-center justify-center">
-                <span className="text-[9px] font-mono text-sky-accent">AI</span>
-              </div>
-            </div>
-          </div>
+        <header className="flex items-center justify-between px-6 py-3 border-b border-bg-border bg-bg-card shrink-0">
+          <span className="text-xs font-medium text-text-secondary">
+            {location.pathname === "/" ? "Dashboard" :
+             location.pathname.slice(1).replace("-", " ").replace(/^\w/, (c) => c.toUpperCase())}
+          </span>
         </header>
+
+        {/* Research-demo disclaimer — visible on every page */}
+        <div className="flex items-center gap-2 px-6 py-2 border-b border-bg-border bg-bg-elevated shrink-0">
+          <Info size={13} className="text-text-muted shrink-0" />
+          <p className="text-[11px] text-text-muted">
+            Research/capstone demo — not a certified clinical device. Patient cases shown are synthetic sample data.
+          </p>
+        </div>
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto">
